@@ -30,11 +30,16 @@
  */
 
 export function evaluateRLS(data = {}) {
+  // 1) Do you feel an urge to move your legs or an uncomfortable sensation in them?
   const q1 = Boolean(data.legs_uncomfortable_resting ?? data.legsUncomfortableResting ?? data.uncomfortable_leg_sensations);
-  const q2 = Boolean(data.legs_worse_evening ?? data.legsWorseEvening ?? data.urge_to_move_legs);
+  // 2) Does this sensation increase on lying down or resting?
+  const q2 = Boolean(data.legs_no_other_reason ?? data.legsNoOtherReason ?? data.rest_worsens_legs ?? data.legs_rest_worsens ?? data.legsRestWorsens);
+  // 3) Does it get better till the time you stretch or walk?
   const q3 = Boolean(data.legs_moving_helps ?? data.legsMovingHelps ?? data.movement_relieves_legs);
-  const q4 = Boolean(data.legs_no_other_reason ?? data.legsNoOtherReason ?? data.rest_worsens_legs);
+  // 4) Does this sensation get worse in evening or night?
+  const q4 = Boolean(data.legs_worse_evening ?? data.legsWorseEvening ?? data.worse_evening_or_night);
 
+  // If all 4 positive -> RLS likely
   const isRLS = q1 && q2 && q3 && q4;
 
   return {
@@ -122,32 +127,83 @@ export function getBMICategory(bmi) {
 }
 
 export function evaluateOSA(data = {}) {
+  // 1. Snoring: yes / no
   const snores = Boolean(data.snores_when_sleeping ?? data.snoresWhenSleeping);
-  const fatigue = Boolean(data.drowsy_during_day ?? data.drowsyDuringDay);
-  const apnea = Boolean(data.stop_breathing_noticed ?? data.stopBreathingNoticed);
-  const bmiVal = calculatePatientBMI(data) || 0;
-  const htOrNeckOrBmi = Boolean(
-    (Number(data.bp_systolic ?? data.bpSystolic) || 0) > 140 || 
-    (Number(data.neck_circumference_cm ?? data.neckCircumferenceCm) || 0) > 40 ||
-    bmiVal > 35
-  );
 
-  const totalPositive = (snores ? 1 : 0) + (fatigue ? 1 : 0) + (apnea ? 1 : 0) + (htOrNeckOrBmi ? 1 : 0);
+  // Biological sex check for gender-stratified cutoffs
+  const sex = String(data.sex ?? '').trim().toLowerCase();
+  const isFemale = sex === 'female' || sex === 'f';
 
-  let category = 'Unlikely';
-  if (totalPositive >= 4) {
-    category = 'Highly +ve to OSA';
+  // 2. Waist circumference: >= 85 cm for females, >= 93 cm for males
+  const waist = Number(data.waist_circumference_cm ?? data.waistCircumferenceCm) || 0;
+  const waistThreshold = isFemale ? 85 : 93;
+  const waistPositive = waist > 0 && waist >= waistThreshold;
+
+  // 3. Neck circumference: >= 32 cm for females, >= 37 cm for males
+  const neck = Number(data.neck_circumference_cm ?? data.neckCircumferenceCm) || 0;
+  const neckThreshold = isFemale ? 32 : 37;
+  const neckPositive = neck > 0 && neck >= neckThreshold;
+
+  // 4. Age: >= 45 for females, >= 35 for males
+  const age = Number(data.age) || 0;
+  const ageThreshold = isFemale ? 45 : 35;
+  const agePositive = age > 0 && age >= ageThreshold;
+
+  const totalPositive = (snores ? 1 : 0) + 
+                        (waistPositive ? 1 : 0) + 
+                        (neckPositive ? 1 : 0) + 
+                        (agePositive ? 1 : 0);
+
+  let category = 'Very low possibility';
+  let patientMessage = 'You have very low possibility of having OSA';
+  let dashboardMessage = 'Very low possibility (~0%)';
+  let probabilityPercent = 0;
+  let probabilityLabel = '—';
+
+  if (totalPositive === 4) {
+    category = 'Very high chances of OSA';
+    patientMessage = 'You have very high chances of having OSA';
+    dashboardMessage = 'Probablity of approx 80%';
+    probabilityPercent = 80;
+    probabilityLabel = 'Approx 80%';
   } else if (totalPositive === 3) {
-    category = 'Likely OSA';
+    category = 'High chances of OSA';
+    patientMessage = 'You have high chances of having OSA';
+    dashboardMessage = 'Probablity of approx 55%';
+    probabilityPercent = 55;
+    probabilityLabel = 'Approx 55%';
   } else if (totalPositive === 2) {
-    category = 'Probable OSA';
+    category = 'Possible OSA';
+    patientMessage = 'You have possible OSA';
+    dashboardMessage = 'Probablity of approx 37%';
+    probabilityPercent = 37;
+    probabilityLabel = 'Approx 37%';
+  } else if (totalPositive === 1) {
+    category = 'Low possibility';
+    patientMessage = 'You have low possibility of having OSA';
+    dashboardMessage = 'Low possibility';
+    probabilityPercent = null;
+    probabilityLabel = 'Low';
   }
 
+  const studyFootnote = 'Probability is on the basis of a study of data of >2500 individuals from India.';
+
   return {
-    scoreRatio: totalPositive > 0 ? `${totalPositive}/4` : '—',
+    scoreRatio: `${totalPositive}/4`,
     totalPositive,
     category,
-    isPositive: totalPositive >= 2
+    patientMessage,
+    dashboardMessage,
+    probabilityPercent,
+    probabilityLabel,
+    studyFootnote,
+    isPositive: totalPositive >= 2,
+    criteria: {
+      snoring: { positive: snores, label: 'Snoring' },
+      waist: { positive: waistPositive, value: waist, threshold: waistThreshold, label: `Waist (≥${waistThreshold}cm)` },
+      neck: { positive: neckPositive, value: neck, threshold: neckThreshold, label: `Neck (≥${neckThreshold}cm)` },
+      age: { positive: agePositive, value: age, threshold: ageThreshold, label: `Age (≥${ageThreshold}y)` }
+    }
   };
 }
 
@@ -165,7 +221,21 @@ export function evaluateTestPathAndSafety(data = {}) {
                  ((Number(data.bp_systolic) || 0) > 140 && (Number(data.bp_diastolic) || 0) > 90);
 
   const hasSevereComorbidity = hasHeartDisease || hasCOPDOrAsthma || hasStroke;
-  const accidentHistory = Boolean(data.had_driving_accident_or_near_miss || data.drowsy_driving_accident);
+
+  const incidents = Array.isArray(data.sleepiness_incident_types) 
+    ? data.sleepiness_incident_types 
+    : (Array.isArray(data.sleepinessIncidentTypes) ? data.sleepinessIncidentTypes : []);
+
+  const hasAccidentIncident = incidents.some(i => {
+    const s = String(i).toLowerCase();
+    return (s.includes('accident') || s.includes('near') || s.includes('crash') || s.includes('drifted')) && !s.includes('neither');
+  });
+
+  const accidentHistory = Boolean(
+    data.had_driving_accident_or_near_miss || 
+    data.drowsy_driving_accident ||
+    hasAccidentIncident
+  );
 
   let testPath = 'Sleep Hygiene Recommendations';
   let clinicalSummary = "Right now you don't have any sleep abnormalities, but we encourage you to maintain healthy sleep hygiene routines.";

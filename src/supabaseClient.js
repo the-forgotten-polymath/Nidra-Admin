@@ -20,3 +20,22 @@ export async function fetchAllAssessments() {
   }
   return { data, error: null };
 }
+
+/**
+ * Update a patient sleep assessment record
+ */
+export async function updateAssessment(id, updates) {
+  if (!id) return { data: null, error: new Error('Missing assessment ID') };
+  const { data, error } = await supabase
+    .from('sleep_assessments')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating patient assessment:', error);
+    return { data: null, error };
+  }
+  return { data, error: null };
+}
