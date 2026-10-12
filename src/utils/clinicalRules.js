@@ -39,13 +39,13 @@ export function evaluateRLS(data = {}) {
   // 4) Does this sensation get worse in evening or night?
   const q4 = Boolean(data.legs_worse_evening ?? data.legsWorseEvening ?? data.worse_evening_or_night);
 
-  // If all 4 positive -> RLS likely
+  // If all 4 positive -> RLS High likely (Modified Indian criteria)
   const isRLS = q1 && q2 && q3 && q4;
 
   return {
     isPositive: isRLS,
-    status: isRLS ? 'Likely' : '—',
-    label: isRLS ? 'Likely RLS' : 'None'
+    status: isRLS ? 'High likely' : '—',
+    label: isRLS ? 'High likely RLS' : 'None'
   };
 }
 

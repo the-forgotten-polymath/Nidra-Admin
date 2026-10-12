@@ -289,14 +289,14 @@ export default function App() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>Likely RLS</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>High Likely RLS</span>
               <Sparkles size={16} color="#2563EB" />
             </div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#0F172A', letterSpacing: '-0.5px' }}>
               {stats.rlsPossible}
             </div>
             <div style={{ fontSize: 11, color: '#2563EB', fontWeight: 600, marginTop: 4 }}>
-              IRLSSG 4/4 criteria confirmed
+              Modified Indian criteria (High likely)
             </div>
           </div>
 
@@ -386,7 +386,7 @@ export default function App() {
                 cursor: 'pointer'
               }}
             >
-              RLS Confirmed ({stats.rlsPossible})
+              High Likely RLS ({stats.rlsPossible})
             </button>
 
             <button
@@ -606,7 +606,7 @@ export default function App() {
                         <td style={{ padding: '14px 16px' }}>
                           {item.rlsEval.isPositive ? (
                             <span style={{ fontSize: 11, fontWeight: 700, background: '#EFF6FF', color: '#1E40AF', padding: '3px 8px', borderRadius: 6 }}>
-                              Likely (4/4)
+                              High likely (4/4)
                             </span>
                           ) : (
                             <span style={{ color: '#94A3B8' }}>—</span>

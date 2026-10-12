@@ -351,14 +351,14 @@ export default function PatientDetailScreen({ patient, onBack }) {
                   padding: '2px 8px',
                   borderRadius: 6
                 }}>
-                  {evaluation.rlsEval.isPositive ? 'Likely (4/4)' : 'Unlikely'}
+                  {evaluation.rlsEval.isPositive ? 'High likely (4/4)' : 'Unlikely'}
                 </span>
               </div>
               <div style={{ fontSize: 15, fontWeight: 800, color: evaluation.rlsEval.isPositive ? '#1E40AF' : '#0F172A', marginBottom: 4 }}>
-                {evaluation.rlsEval.isPositive ? 'RLS Criteria Confirmed' : 'No RLS Symptoms'}
+                {evaluation.rlsEval.isPositive ? 'High likely' : 'No RLS Symptoms'}
               </div>
               <div style={{ fontSize: 12, fontWeight: 500, color: '#64748B' }}>
-                Standard IRLSSG 4-question criteria evaluated
+                Modified Indian criteria evaluated
               </div>
             </div>
 
@@ -637,7 +637,7 @@ export default function PatientDetailScreen({ patient, onBack }) {
             </div>
           </div>
 
-          {/* SECTION III: RESTLESS LEGS SYNDROME (IRLSSG 4 STANDARDIZED QUESTIONS) */}
+          {/* SECTION III: RESTLESS LEGS SYNDROME (MODIFIED INDIAN CRITERIA) */}
           <div style={{ background: '#FFFFFF', borderRadius: 16, border: '1px solid #E2E8F0', padding: '22px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, paddingBottom: 14, borderBottom: '1px solid #F1F5F9', marginBottom: 18 }}>
               <div style={{ width: 32, height: 32, borderRadius: 8, background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>
@@ -645,10 +645,10 @@ export default function PatientDetailScreen({ patient, onBack }) {
               </div>
               <div>
                 <h3 style={{ fontSize: 15, fontWeight: 800, color: '#0F172A', margin: 0 }}>
-                  Restless Legs Syndrome (IRLSSG 4 Diagnostic Criteria)
+                  Restless Legs Syndrome (Modified Indian Diagnostic Criteria)
                 </h3>
                 <span style={{ fontSize: 11, color: '#64748B', fontWeight: 500 }}>
-                  All 4 criteria must be positive for clinical diagnosis of RLS
+                  All 4 positive indicates high likely RLS (Modified Indian criteria)
                 </span>
               </div>
             </div>
