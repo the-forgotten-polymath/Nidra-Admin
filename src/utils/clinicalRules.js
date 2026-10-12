@@ -30,26 +30,31 @@
  */
 
 export function evaluateRLS(data = {}) {
-  const legSensations = Boolean(data.uncomfortable_leg_sensations);
-  const urgeToMove = Boolean(data.urge_to_move_legs);
-  const worseAtRest = Boolean(data.rest_worsens_legs);
-  const relievedByMovement = Boolean(data.movement_relieves_legs);
+  const q1 = Boolean(data.legs_uncomfortable_resting ?? data.legsUncomfortableResting ?? data.uncomfortable_leg_sensations);
+  const q2 = Boolean(data.legs_worse_evening ?? data.legsWorseEvening ?? data.urge_to_move_legs);
+  const q3 = Boolean(data.legs_moving_helps ?? data.legsMovingHelps ?? data.movement_relieves_legs);
+  const q4 = Boolean(data.legs_no_other_reason ?? data.legsNoOtherReason ?? data.rest_worsens_legs);
 
-  const isRLS = legSensations && urgeToMove && worseAtRest && relievedByMovement;
+  const isRLS = q1 && q2 && q3 && q4;
 
   return {
     isPositive: isRLS,
-    status: isRLS ? 'Possible' : '—',
-    label: isRLS ? 'Possible RLS' : 'None'
+    status: isRLS ? 'Likely' : '—',
+    label: isRLS ? 'Likely RLS' : 'None'
   };
 }
 
 export function evaluateInsomnia(data = {}) {
-  const fallAsleepMin = Number(data.time_to_fall_asleep_minutes) || 0;
-  const awakenings = Number(data.nocturnal_awakenings_count) || 0;
-  const nightsPerWeek = Number(data.trouble_sleeping_nights_per_week) || 0;
+  const fallAsleepMin = Number(data.time_to_fall_asleep_minutes ?? data.timeToFallAsleepMinutes) || 0;
+  const awakenings = Number(data.nocturnal_awakenings_count ?? data.nocturnalAwakeningsCount) || 0;
+  const nightsPerWeek = Number(
+    data.sleep_complaint_nights_per_week ?? 
+    data.trouble_sleeping_nights_per_week ?? 
+    data.sleepComplaintNightsPerWeek
+  ) || 0;
 
-  const isInsomnia = fallAsleepMin >= 30 && awakenings >= 2 && nightsPerWeek > 3;
+  // Criteria: Sleep onset latency >= 30 min OR Nocturnal awakenings >= 2 times/night AND Frequency >= 3 nights/week
+  const isInsomnia = (fallAsleepMin >= 30 || awakenings >= 2) && nightsPerWeek >= 3;
 
   return {
     isPositive: isInsomnia,
@@ -58,28 +63,89 @@ export function evaluateInsomnia(data = {}) {
   };
 }
 
-export function evaluateOSA(data = {}) {
-  const snores = Boolean(data.snores_when_sleeping);
-  const fatigue = Boolean(data.drowsy_during_day);
-  const apnea = Boolean(data.stop_breathing_noticed);
-  const htOrNeck = Boolean(data.bp_systolic > 140 || data.neck_circumference_cm > 40);
+export function calculatePatientBMI(data = {}) {
+  if (data.calculated_bmi !== undefined && data.calculated_bmi !== null && Number(data.calculated_bmi) > 0) {
+    return Number(Number(data.calculated_bmi).toFixed(1));
+  }
+  if (data.bmi !== undefined && data.bmi !== null && Number(data.bmi) > 0) {
+    return Number(Number(data.bmi).toFixed(1));
+  }
+  const heightCm = Number(data.height_cm ?? data.heightCm) || 0;
+  const weightKg = (Number(data.weight_kg ?? data.weightKg) || 0) + ((Number(data.weight_gm ?? data.weightGm) || 0) / 1000);
+  if (heightCm > 0 && weightKg > 0) {
+    const heightM = heightCm / 100.0;
+    return Number((weightKg / (heightM * heightM)).toFixed(1));
+  }
+  return null;
+}
 
-  const totalPositive = (snores ? 1 : 0) + (fatigue ? 1 : 0) + (apnea ? 1 : 0) + (htOrNeck ? 1 : 0);
-  const nonSnoringPositive = (fatigue ? 1 : 0) + (apnea ? 1 : 0) + (htOrNeck ? 1 : 0);
+export function getBMICategory(bmi) {
+  if (bmi === null || bmi === undefined || Number(bmi) <= 0) {
+    return {
+      label: '—',
+      category: 'Unknown',
+      color: '#64748B',
+      bg: '#F1F5F9'
+    };
+  }
+  const val = Number(bmi);
+  if (val < 18.5) {
+    return {
+      label: 'Underweight',
+      category: 'Underweight',
+      color: '#1D4ED8',
+      bg: '#EFF6FF'
+    };
+  }
+  if (val <= 22.9) {
+    return {
+      label: 'Normal',
+      category: 'Normal',
+      color: '#047857',
+      bg: '#ECFDF5'
+    };
+  }
+  if (val <= 24.9) {
+    return {
+      label: 'Overweight',
+      category: 'Overweight',
+      color: '#B45309',
+      bg: '#FFFBEB'
+    };
+  }
+  return {
+    label: 'Obese',
+    category: 'Obese',
+    color: '#B91C1C',
+    bg: '#FEF2F2'
+  };
+}
+
+export function evaluateOSA(data = {}) {
+  const snores = Boolean(data.snores_when_sleeping ?? data.snoresWhenSleeping);
+  const fatigue = Boolean(data.drowsy_during_day ?? data.drowsyDuringDay);
+  const apnea = Boolean(data.stop_breathing_noticed ?? data.stopBreathingNoticed);
+  const bmiVal = calculatePatientBMI(data) || 0;
+  const htOrNeckOrBmi = Boolean(
+    (Number(data.bp_systolic ?? data.bpSystolic) || 0) > 140 || 
+    (Number(data.neck_circumference_cm ?? data.neckCircumferenceCm) || 0) > 40 ||
+    bmiVal > 35
+  );
+
+  const totalPositive = (snores ? 1 : 0) + (fatigue ? 1 : 0) + (apnea ? 1 : 0) + (htOrNeckOrBmi ? 1 : 0);
 
   let category = 'Unlikely';
-  if (totalPositive === 4 && snores) {
+  if (totalPositive >= 4) {
     category = 'Highly +ve to OSA';
-  } else if (nonSnoringPositive >= 3) {
+  } else if (totalPositive === 3) {
     category = 'Likely OSA';
-  } else if (nonSnoringPositive >= 2) {
+  } else if (totalPositive === 2) {
     category = 'Probable OSA';
   }
 
   return {
     scoreRatio: totalPositive > 0 ? `${totalPositive}/4` : '—',
     totalPositive,
-    nonSnoringPositive,
     category,
     isPositive: totalPositive >= 2
   };
@@ -162,10 +228,15 @@ export function evaluateTestPathAndSafety(data = {}) {
     comorbidityLabel = diagConds.join(', ');
   }
 
+  const bmi = calculatePatientBMI(data);
+  const bmiCategory = getBMICategory(bmi);
+
   return {
     rlsEval,
     insomniaEval,
     osaEval,
+    bmi,
+    bmiCategory,
     testPath,
     clinicalSummary,
     safetyAlert,

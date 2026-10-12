@@ -4,7 +4,7 @@ import {
   Moon, Wind, Flag, Stethoscope, Car, ChevronRight, CheckCircle2
 } from 'lucide-react';
 import { fetchAllAssessments } from './supabaseClient';
-import { evaluateTestPathAndSafety } from './utils/clinicalRules';
+import { evaluateTestPathAndSafety, calculatePatientBMI, getBMICategory } from './utils/clinicalRules';
 
 export default function App() {
   const [patients, setPatients] = useState([]);
@@ -44,7 +44,8 @@ export default function App() {
       const term = searchTerm.toLowerCase();
       return (p.patient_name || '').toLowerCase().includes(term) ||
              (p.mobile_number || '').includes(term) ||
-             (p.centre_code || '').toLowerCase().includes(term);
+             (p.centre_code || '').toLowerCase().includes(term) ||
+             (item.bmiCategory?.label || '').toLowerCase().includes(term);
     });
   }, [processedPatients, searchTerm]);
 
@@ -115,7 +116,7 @@ export default function App() {
           </div>
 
           <div style={{ background: '#F8FAFC', padding: 20, borderRadius: 14, border: '1px solid #E2E8F0' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#64748B' }}>Possible RLS</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#64748B' }}>Likely RLS</div>
             <div style={{ fontSize: 32, fontWeight: 900, color: '#0F172A', marginTop: 4 }}>{stats.rlsPossible}</div>
           </div>
 
@@ -131,10 +132,11 @@ export default function App() {
             <thead>
               <tr style={{ borderBottom: '1px solid #E2E8F0', color: '#64748B', fontWeight: 600, fontSize: 12 }}>
                 <th style={{ padding: '14px 20px' }}>Patient</th>
+                <th style={{ padding: '14px 16px' }}>BMI</th>
+                <th style={{ padding: '14px 16px' }}>Comorbidities</th>
                 <th style={{ padding: '14px 16px' }}>OSA</th>
-                <th style={{ padding: '14px 16px' }}>Comorbidity</th>
+                <th style={{ padding: '14px 16px' }}>INSOMNIA</th>
                 <th style={{ padding: '14px 16px' }}>RLS</th>
-                <th style={{ padding: '14px 16px' }}>Insomnia</th>
                 <th style={{ padding: '14px 16px' }}>Test path</th>
                 <th style={{ padding: '14px 16px' }}>Safety</th>
                 <th style={{ padding: '14px 20px' }}>Updated</th>
@@ -143,7 +145,7 @@ export default function App() {
             <tbody>
               {filteredPatients.length === 0 ? (
                 <tr>
-                  <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontWeight: 600 }}>
+                  <td colSpan={9} style={{ padding: 40, textAlign: 'center', color: '#94A3B8', fontWeight: 600 }}>
                     No patient records found.
                   </td>
                 </tr>
@@ -172,6 +174,35 @@ export default function App() {
                         </div>
                       </td>
 
+                      {/* BMI */}
+                      <td style={{ padding: '14px 16px' }}>
+                        {item.bmi ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontWeight: 800, color: '#0F172A', fontSize: 13 }}>
+                              {item.bmi}
+                            </span>
+                            <span style={{ 
+                              fontSize: 10, 
+                              fontWeight: 700, 
+                              color: item.bmiCategory.color, 
+                              background: item.bmiCategory.bg, 
+                              padding: '1px 6px', 
+                              borderRadius: 8,
+                              width: 'fit-content'
+                            }}>
+                              {item.bmiCategory.label}
+                            </span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94A3B8' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Comorbidities */}
+                      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#334155' }}>
+                        {item.comorbidityLabel}
+                      </td>
+
                       {/* OSA Score Ratio */}
                       <td style={{ padding: '14px 16px' }}>
                         {item.osaEval.totalPositive > 0 ? (
@@ -190,14 +221,9 @@ export default function App() {
                         )}
                       </td>
 
-                      {/* Comorbidity */}
-                      <td style={{ padding: '14px 16px', fontWeight: 700, color: '#334155' }}>
-                        {item.comorbidityLabel}
-                      </td>
-
-                      {/* RLS Badge */}
+                      {/* INSOMNIA Badge */}
                       <td style={{ padding: '14px 16px' }}>
-                        {item.rlsEval.isPositive ? (
+                        {item.insomniaEval.isPositive ? (
                           <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: 12 }}>
                             Possible
                           </span>
@@ -206,11 +232,11 @@ export default function App() {
                         )}
                       </td>
 
-                      {/* Insomnia Badge */}
+                      {/* RLS Badge */}
                       <td style={{ padding: '14px 16px' }}>
-                        {item.insomniaEval.isPositive ? (
+                        {item.rlsEval.isPositive ? (
                           <span style={{ fontSize: 11, fontWeight: 700, background: '#FEF3C7', color: '#92400E', padding: '3px 8px', borderRadius: 12 }}>
-                            Possible
+                            Likely
                           </span>
                         ) : (
                           <span style={{ color: '#94A3B8' }}>—</span>
@@ -240,7 +266,7 @@ export default function App() {
                             background: '#FEE2E2', 
                             color: '#991B1B', 
                             padding: '3px 8px', 
-                            borderRadius: 12,
+                            borderRadius: 12, 
                             display: 'inline-flex',
                             alignItems: 'center',
                             gap: 4
@@ -296,9 +322,32 @@ export default function App() {
 
               <div style={{ background: '#F8FAFC', padding: 16, borderRadius: 10, border: '1px solid #E2E8F0' }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>📏 Vitals & Anthropometrics</div>
-                <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600 }}>
+                <div style={{ fontSize: 13, marginTop: 8, fontWeight: 600, display: 'flex', flexDirection: 'column', gap: 4 }}>
                   <div>BP: {selectedPatient.bp_systolic ? `${selectedPatient.bp_systolic}/${selectedPatient.bp_diastolic}` : 'N/A'}</div>
                   <div>Height / Weight: {selectedPatient.height_cm || 150} cm / {selectedPatient.weight_kg || 60} kg</div>
+                  <div>
+                    BMI:{' '}
+                    {(() => {
+                      const b = calculatePatientBMI(selectedPatient);
+                      if (!b) return 'N/A';
+                      const cat = getBMICategory(b);
+                      return (
+                        <span>
+                          <strong style={{ color: '#0F172A' }}>{b} kg/m²</strong>{' '}
+                          <span style={{ 
+                            fontSize: 11, 
+                            fontWeight: 700, 
+                            color: cat.color, 
+                            background: cat.bg, 
+                            padding: '1px 6px', 
+                            borderRadius: 6 
+                          }}>
+                            {cat.label}
+                          </span>
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <div>Neck: {selectedPatient.neck_circumference_cm ? `${selectedPatient.neck_circumference_cm} cm` : 'N/A'}</div>
                 </div>
               </div>
